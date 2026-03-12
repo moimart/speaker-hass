@@ -1,10 +1,10 @@
 services:
   voice-assistant:
-    build: .
+    image: ghcr.io/moimart/speaker-hass:latest
     container_name: speaker-hass
     restart: unless-stopped
 
-    # Pass through all sound devices (USB Jabra)
+    # Pass through all sound devices (Anker PowerConf S330)
     devices:
       - /dev/snd:/dev/snd
     group_add:
@@ -24,8 +24,8 @@ services:
       - SATELLITE_NAME=Speaker HASS
 
       # ALSA devices — find yours with: arecord -l / aplay -l
-      - MIC_DEVICE=plughw:CARD=Jabra,DEV=0
-      - SND_DEVICE=plughw:CARD=Jabra,DEV=0
+      - MIC_DEVICE=plughw:CARD=S330,DEV=0
+      - SND_DEVICE=plughw:CARD=S330,DEV=0
 
       # Wake word (built-in: okay_nabu, hey_jarvis, hey_mycroft, alexa)
       # For custom models, set WAKE_WORD_MODEL to a config file path
