@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Settings — Speaker HASS</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container settings-page">
+        <header>
+            <a href="/" class="back-link">← Back</a>
+            <h1 class="title">Settings</h1>
+        </header>
+
+        <main>
+            <section class="settings-section">
+                <h2 class="section-title">Connection</h2>
+                <div class="setting-row">
+                    <span class="setting-label">Home Assistant</span>
+                    <span class="setting-value" id="haHost">—</span>
+                </div>
+                <div class="setting-row">
+                    <span class="setting-label">Port</span>
+                    <span class="setting-value" id="haPort">—</span>
+                </div>
+                <div class="setting-row">
+                    <span class="setting-label">Status</span>
+                    <span class="setting-value" id="haStatus">—</span>
+                </div>
+            </section>
+
+            <section class="settings-section">
+                <h2 class="section-title">Satellite</h2>
+                <div class="setting-row">
+                    <span class="setting-label">Name</span>
+                    <span class="setting-value" id="satName">—</span>
+                </div>
+                <div class="setting-row">
+                    <span class="setting-label">Wake Word</span>
+                    <span class="setting-value" id="wakeWord">—</span>
+                </div>
+            </section>
+
+            <section class="settings-section">
+                <h2 class="section-title">Test</h2>
+                <button class="btn" id="triggerBtn">Trigger Pipeline</button>
+                <p class="setting-hint">Manually trigger the voice pipeline without a wake word.</p>
+            </section>
+        </main>
+
+        <footer>
+            <div class="connection-status" id="connectionStatus">
+                <span class="connection-dot"></span>
+                <span class="connection-text">Connecting</span>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        async function loadSettings() {
+            try {
+                const res = await fetch('/api/status');
+                const data = await res.json();
+                document.getElementById('haHost').textContent = data.config.ha_host;
+                document.getElementById('haPort').textContent = data.config.ha_port;
+                document.getElementById('haStatus').textContent = data.state.connected ? 'Connected' : 'Disconnected';
+                document.getElementById('satName').textContent = data.config.satellite_name;
+                document.getElementById('wakeWord').textContent = data.config.wake_word;
+
+                const dot = document.querySelector('.connection-dot');
+                const text = document.querySelector('.connection-text');
+                dot.classList.add('connected');
+                text.textContent = 'Connected';
+            } catch (e) {
+                const text = document.querySelector('.connection-text');
+                text.textContent = 'Offline';
+            }
+        }
+
+        document.getElementById('triggerBtn').addEventListener('click', async () => {
+            const ws = new WebSocket(`ws://${location.host}/ws`);
+            ws.onopen = () => {
+                ws.send(JSON.stringify({ type: 'trigger' }));
+                setTimeout(() => ws.close(), 500);
+            };
+        });
+
+        loadSettings();
+    </script>
+</body>
+</html>

@@ -1,0 +1,42 @@
+services:
+  voice-assistant:
+    build: .
+    container_name: speaker-hass
+    restart: unless-stopped
+
+    # Pass through all sound devices (USB Jabra)
+    devices:
+      - /dev/snd:/dev/snd
+    group_add:
+      - audio
+
+    ports:
+      - "8080:8080"    # Web UI
+      - "10700:10700"  # Wyoming satellite
+
+    volumes:
+      - ./models:/models:ro
+      - ./config:/config
+
+    environment:
+      # Home Assistant Wyoming server
+      - HA_HOST=homeassistant.local
+      - HA_PORT=10300
+
+      # Wyoming satellite
+      - SATELLITE_PORT=10700
+      - SATELLITE_NAME=Speaker HASS
+
+      # ALSA devices — find yours with: arecord -l / aplay -l
+      - MIC_DEVICE=plughw:CARD=Jabra,DEV=0
+      - SND_DEVICE=plughw:CARD=Jabra,DEV=0
+
+      # Wake word (built-in: okay_nabu, hey_jarvis, hey_mycroft, alexa)
+      # For custom models, set WAKE_WORD_MODEL to a config file path
+      - WAKE_WORD_NAME=okay_nabu
+
+      # Web UI
+      - WEB_PORT=8080
+
+      # Sound effects
+      - SOUND_ENABLED=true
