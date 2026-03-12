@@ -13,7 +13,6 @@
     const historySection = document.getElementById("historySection");
     const connectionDot = document.querySelector(".connection-dot");
     const connectionText = document.querySelector(".connection-text");
-    const stopBtn = document.getElementById("stopBtn");
 
     let ws = null;
     let reconnectDelay = 1000;
@@ -115,8 +114,8 @@
             transcriptCurrent.classList.remove("visible");
         }
 
-        // Show stop button when listening
-        stopBtn.style.display = state === "listening" ? "block" : "none";
+        // Notify shader of state change
+        if (window.setBgState) window.setBgState(state);
     }
 
     function showTranscript(text) {
@@ -155,16 +154,12 @@
         }
     }
 
-    // Manual trigger via orb click
+    // Orb click: trigger wake word (idle) or stop listening (listening)
     orb.addEventListener("click", function () {
-        if (ws && ws.readyState === WebSocket.OPEN && currentState === "idle") {
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+        if (currentState === "idle") {
             ws.send(JSON.stringify({ type: "trigger" }));
-        }
-    });
-
-    // Stop listening button
-    stopBtn.addEventListener("click", function () {
-        if (ws && ws.readyState === WebSocket.OPEN && currentState === "listening") {
+        } else if (currentState === "listening") {
             ws.send(JSON.stringify({ type: "stop_listening" }));
         }
     });
