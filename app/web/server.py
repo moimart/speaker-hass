@@ -67,6 +67,8 @@ class WebServer:
                             "name": "manual",
                             "score": 1.0,
                         })
+                    elif data.get("type") == "stop_listening":
+                        await self.event_bus.publish("listening.stop", {})
             except WebSocketDisconnect:
                 pass
             except Exception:

@@ -9,6 +9,7 @@ from wyoming.asr import Transcript
 from wyoming.audio import AudioChunk, AudioStart, AudioStop
 from wyoming.event import Event, async_read_event, async_write_event
 from wyoming.info import Attribution, Describe, Info, Satellite
+from wyoming.ping import Ping, Pong
 from wyoming.pipeline import PipelineStage, RunPipeline
 from wyoming.satellite import RunSatellite, StreamingStarted, StreamingStopped
 from wyoming.vad import VoiceStarted, VoiceStopped
@@ -39,6 +40,7 @@ class SatelliteService:
         self._tts_channels = 0
         self._connected = False
         self._transcript_text = ""
+        self._chunk_count = 0
 
     @property
     def state(self) -> SatelliteState:
@@ -48,10 +50,22 @@ class SatelliteService:
     def connected(self) -> bool:
         return self._connected
 
+    async def stop_listening(self) -> None:
+        """Stop streaming audio to HA (triggered from UI)."""
+        logger.info("Stop listening requested (streaming=%s, chunks_sent=%d)", self._streaming, self._chunk_count)
+        if self._streaming:
+            self._streaming = False
+            await self._send_event(AudioStop(timestamp=0).event())
+            logger.info("Sent AudioStop to HA")
+            await self._set_state(SatelliteState.PROCESSING)
+        else:
+            logger.warning("Stop requested but not currently streaming")
+
     async def run(self) -> None:
         """Run the satellite: listen for HA connections on our TCP port."""
         self.event_bus.subscribe("wakeword.detected", self._on_wakeword)
         self.event_bus.subscribe("audio.chunk", self._on_audio_chunk)
+        self.event_bus.subscribe("listening.stop", self._on_stop_listening)
 
         server = await asyncio.start_server(
             self._handle_connection,
@@ -96,6 +110,7 @@ class SatelliteService:
 
     async def _handle_event(self, event: Event) -> None:
         """Process an incoming Wyoming event from HA."""
+        logger.info("Received event: %s", event.type)
         if Describe.is_type(event.type):
             await self._send_info()
 
@@ -166,6 +181,13 @@ class SatelliteService:
             logger.debug("Detect received — listening for wake word")
             await self._set_state(SatelliteState.IDLE)
 
+        elif Ping.is_type(event.type):
+            ping = Ping.from_event(event)
+            await self._send_event(Pong(text=ping.text).event())
+
+        else:
+            logger.warning("Unhandled event type: %s (data=%s)", event.type, event.data)
+
     async def _send_info(self) -> None:
         """Send satellite info to HA."""
         info = Info(
@@ -197,8 +219,17 @@ class SatelliteService:
         await self._send_event(detection.event())
         logger.info("Sent wake word detection to HA")
 
+        # Tell HA to start the ASR → TTS pipeline (required for local wake word)
+        await self._send_event(
+            RunPipeline(
+                start_stage=PipelineStage.ASR,
+                end_stage=PipelineStage.TTS,
+            ).event()
+        )
+        logger.info("Sent RunPipeline (ASR→TTS) to HA")
+
         # Start streaming audio
-        self._streaming = True
+        self._chunk_count = 0
         await self._send_event(
             AudioStart(
                 rate=self.config.audio_rate,
@@ -207,12 +238,25 @@ class SatelliteService:
                 timestamp=0,
             ).event()
         )
+        self._streaming = True
         await self._set_state(SatelliteState.LISTENING)
 
     async def _on_audio_chunk(self, _event: str, data: bytes) -> None:
         """Forward mic audio to HA when streaming."""
         if not self._streaming or self._writer is None:
             return
+
+        self._chunk_count += 1
+        if self._chunk_count % 50 == 1:
+            # Log every 50 chunks (~1.6s at 16kHz/512 samples)
+            # Calculate RMS to check if mic is actually capturing audio
+            import struct
+            samples = struct.unpack(f"<{len(data)//2}h", data)
+            rms = (sum(s * s for s in samples) / len(samples)) ** 0.5
+            logger.info(
+                "Audio chunk #%d: %d bytes, RMS=%.0f (streaming=%s)",
+                self._chunk_count, len(data), rms, self._streaming,
+            )
 
         chunk = AudioChunk(
             audio=data,
@@ -222,6 +266,10 @@ class SatelliteService:
             timestamp=0,
         )
         await self._send_event(chunk.event())
+
+    async def _on_stop_listening(self, _event: str, _data: dict) -> None:
+        """Handle stop listening request from UI."""
+        await self.stop_listening()
 
     async def _send_event(self, event: Event) -> None:
         """Send a Wyoming event to HA."""

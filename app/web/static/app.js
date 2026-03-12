@@ -13,6 +13,7 @@
     const historySection = document.getElementById("historySection");
     const connectionDot = document.querySelector(".connection-dot");
     const connectionText = document.querySelector(".connection-text");
+    const stopBtn = document.getElementById("stopBtn");
 
     let ws = null;
     let reconnectDelay = 1000;
@@ -113,6 +114,9 @@
         if (state === "listening" || state === "wake") {
             transcriptCurrent.classList.remove("visible");
         }
+
+        // Show stop button when listening
+        stopBtn.style.display = state === "listening" ? "block" : "none";
     }
 
     function showTranscript(text) {
@@ -155,6 +159,13 @@
     orb.addEventListener("click", function () {
         if (ws && ws.readyState === WebSocket.OPEN && currentState === "idle") {
             ws.send(JSON.stringify({ type: "trigger" }));
+        }
+    });
+
+    // Stop listening button
+    stopBtn.addEventListener("click", function () {
+        if (ws && ws.readyState === WebSocket.OPEN && currentState === "listening") {
+            ws.send(JSON.stringify({ type: "stop_listening" }));
         }
     });
 

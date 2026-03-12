@@ -361,6 +361,31 @@ footer {
     color: var(--accent-hover);
 }
 
+.stop-btn {
+    display: none;
+    margin: 16px auto 0;
+    padding: 10px 28px;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    font-family: inherit;
+    letter-spacing: -0.01em;
+    color: #ffffff;
+    background: var(--red);
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background var(--transition), transform 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.stop-btn:hover {
+    opacity: 0.85;
+}
+
+.stop-btn:active {
+    transform: scale(0.97);
+}
+
 /* ---- Settings Page ---- */
 
 .settings-page header {
