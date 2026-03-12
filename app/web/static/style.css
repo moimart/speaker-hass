@@ -100,7 +100,7 @@ header {
     letter-spacing: -0.01em;
 }
 
-/* ---- Orb ---- */
+/* ---- HAL Eye ---- */
 
 .orb-container {
     display: flex;
@@ -109,8 +109,8 @@ header {
 }
 
 .orb {
-    width: 140px;
-    height: 140px;
+    width: 160px;
+    height: 160px;
     position: relative;
     display: flex;
     align-items: center;
@@ -119,110 +119,128 @@ header {
     -webkit-tap-highlight-color: transparent;
 }
 
-.orb-inner {
-    width: 80px;
-    height: 80px;
+/* Dark bezel housing */
+.orb-ring.ring-2 {
+    position: absolute;
+    width: 160px;
+    height: 160px;
     border-radius: 50%;
-    background: var(--orb-idle);
-    transition: background var(--transition), transform var(--transition), box-shadow var(--transition);
-    box-shadow: 0 0 40px rgba(0, 113, 227, 0.3);
-    z-index: 2;
+    background: #1a1a1a;
+    border: 2px solid #2a2a2a;
+    z-index: 1;
+    opacity: 1;
+    transition: border-color var(--transition);
 }
 
+/* Mid ring — dark gradient lens surround */
 .orb-ring {
     position: absolute;
-    width: 110px;
-    height: 110px;
+    width: 130px;
+    height: 130px;
     border-radius: 50%;
-    border: 1.5px solid var(--orb-idle);
-    opacity: 0.3;
-    transition: border-color var(--transition), opacity var(--transition), transform var(--transition);
-    z-index: 1;
+    border: none;
+    opacity: 1;
+    background: radial-gradient(circle, #333 0%, #111 70%, #0a0a0a 100%);
+    z-index: 2;
+    transition: box-shadow var(--transition);
 }
 
-.orb-ring.ring-2 {
-    width: 138px;
-    height: 138px;
-    opacity: 0.12;
+/* Glowing lens center */
+.orb-inner {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    z-index: 3;
+    position: relative;
+    transition: background var(--transition), box-shadow var(--transition), transform var(--transition);
 }
 
-/* Orb states */
+/* Lens highlight dot */
+.orb-inner::after {
+    content: "";
+    position: absolute;
+    top: 14px;
+    left: 18px;
+    width: 12px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.25);
+    transform: rotate(-30deg);
+}
+
+/* ---- HAL States ---- */
+
 .orb.state-idle .orb-inner {
-    background: var(--orb-idle);
-    box-shadow: 0 0 40px rgba(0, 113, 227, 0.3);
+    background: radial-gradient(circle at 40% 38%, #ff6b4a, #cc2200 50%, #880000 100%);
+    box-shadow: 0 0 30px rgba(204, 34, 0, 0.5), 0 0 60px rgba(204, 34, 0, 0.2);
 }
-.orb.state-idle .orb-ring { border-color: var(--orb-idle); }
+.orb.state-idle .orb-ring {
+    box-shadow: inset 0 0 20px rgba(204, 34, 0, 0.15);
+}
 
 .orb.state-wake .orb-inner {
-    background: var(--orb-wake);
-    box-shadow: 0 0 60px rgba(48, 209, 88, 0.5);
-    transform: scale(1.1);
+    background: radial-gradient(circle at 40% 38%, #7fff6b, #22cc00 50%, #008800 100%);
+    box-shadow: 0 0 40px rgba(48, 209, 88, 0.6), 0 0 80px rgba(48, 209, 88, 0.25);
+    transform: scale(1.08);
 }
 .orb.state-wake .orb-ring {
-    border-color: var(--orb-wake);
-    opacity: 0.5;
-    transform: scale(1.05);
+    box-shadow: inset 0 0 25px rgba(48, 209, 88, 0.2);
 }
 
 .orb.state-listening .orb-inner {
-    background: var(--orb-listening);
-    box-shadow: 0 0 60px rgba(48, 209, 88, 0.5);
-    animation: pulse-listen 1.5s ease-in-out infinite;
+    background: radial-gradient(circle at 40% 38%, #7fff6b, #22cc00 50%, #008800 100%);
+    box-shadow: 0 0 40px rgba(48, 209, 88, 0.6), 0 0 80px rgba(48, 209, 88, 0.25);
+    animation: hal-pulse 1.5s ease-in-out infinite;
 }
 .orb.state-listening .orb-ring {
-    border-color: var(--orb-listening);
-    animation: ring-expand 1.5s ease-in-out infinite;
+    box-shadow: inset 0 0 25px rgba(48, 209, 88, 0.2);
+    animation: hal-ring-glow 1.5s ease-in-out infinite;
 }
 
 .orb.state-processing .orb-inner {
-    background: var(--orb-processing);
-    box-shadow: 0 0 50px rgba(255, 159, 10, 0.4);
-    animation: pulse-process 0.8s ease-in-out infinite;
+    background: radial-gradient(circle at 40% 38%, #ffcc4a, #cc8800 50%, #885500 100%);
+    box-shadow: 0 0 35px rgba(255, 159, 10, 0.5), 0 0 70px rgba(255, 159, 10, 0.2);
+    animation: hal-think 0.8s ease-in-out infinite;
 }
 .orb.state-processing .orb-ring {
-    border-color: var(--orb-processing);
-    animation: spin 3s linear infinite;
+    box-shadow: inset 0 0 20px rgba(255, 159, 10, 0.15);
 }
 
 .orb.state-responding .orb-inner {
-    background: var(--orb-responding);
-    box-shadow: 0 0 60px rgba(191, 90, 242, 0.5);
-    animation: pulse-respond 1s ease-in-out infinite;
+    background: radial-gradient(circle at 40% 38%, #d98aff, #9933cc 50%, #661199 100%);
+    box-shadow: 0 0 40px rgba(191, 90, 242, 0.6), 0 0 80px rgba(191, 90, 242, 0.25);
+    animation: hal-speak 1s ease-in-out infinite;
 }
 .orb.state-responding .orb-ring {
-    border-color: var(--orb-responding);
-    opacity: 0.5;
+    box-shadow: inset 0 0 25px rgba(191, 90, 242, 0.2);
 }
 
 .orb.state-error .orb-inner {
-    background: var(--orb-error);
-    box-shadow: 0 0 40px rgba(255, 69, 58, 0.4);
+    background: radial-gradient(circle at 40% 38%, #666, #333 50%, #1a1a1a 100%);
+    box-shadow: 0 0 15px rgba(100, 100, 100, 0.2);
 }
-.orb.state-error .orb-ring { border-color: var(--orb-error); }
+.orb.state-error .orb-ring {
+    box-shadow: none;
+}
 
-@keyframes pulse-listen {
+@keyframes hal-pulse {
+    0%, 100% { transform: scale(1); box-shadow: 0 0 40px rgba(48, 209, 88, 0.6), 0 0 80px rgba(48, 209, 88, 0.25); }
+    50% { transform: scale(1.06); box-shadow: 0 0 50px rgba(48, 209, 88, 0.8), 0 0 100px rgba(48, 209, 88, 0.35); }
+}
+
+@keyframes hal-ring-glow {
+    0%, 100% { box-shadow: inset 0 0 25px rgba(48, 209, 88, 0.2); }
+    50% { box-shadow: inset 0 0 35px rgba(48, 209, 88, 0.35); }
+}
+
+@keyframes hal-think {
     0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.08); }
+    50% { transform: scale(0.94); }
 }
 
-@keyframes pulse-process {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(0.95); }
-}
-
-@keyframes pulse-respond {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.05); }
-}
-
-@keyframes ring-expand {
-    0%, 100% { transform: scale(1); opacity: 0.3; }
-    50% { transform: scale(1.08); opacity: 0.5; }
-}
-
-@keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+@keyframes hal-speak {
+    0%, 100% { transform: scale(1); box-shadow: 0 0 40px rgba(191, 90, 242, 0.6), 0 0 80px rgba(191, 90, 242, 0.25); }
+    50% { transform: scale(1.04); box-shadow: 0 0 50px rgba(191, 90, 242, 0.8), 0 0 100px rgba(191, 90, 242, 0.35); }
 }
 
 /* ---- Status ---- */
@@ -457,10 +475,10 @@ footer {
     .container { padding: 0 16px; }
     .title { font-size: 2rem; }
     .orb-container { padding: 36px 0 32px; }
-    .orb { width: 120px; height: 120px; }
-    .orb-inner { width: 64px; height: 64px; }
-    .orb-ring { width: 90px; height: 90px; }
-    .orb-ring.ring-2 { width: 118px; height: 118px; }
+    .orb { width: 130px; height: 130px; }
+    .orb-inner { width: 52px; height: 52px; }
+    .orb-ring { width: 105px; height: 105px; }
+    .orb-ring.ring-2 { width: 130px; height: 130px; }
     .state-label { font-size: 1.5rem; }
     .transcript-current { font-size: 1.25rem; }
 }
