@@ -3,6 +3,8 @@ __pycache__/
 *.pyo
 .env
 models/*.tflite
+!models/hey_homie.tflite
+!models/hey_homie.json
 config/*.yaml
 .venv/
 *.egg-info/
