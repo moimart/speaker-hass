@@ -34,6 +34,7 @@ class WebServer:
         self.event_bus.subscribe("state.changed", self._on_state_changed)
         self.event_bus.subscribe("transcript.received", self._on_transcript)
         self.event_bus.subscribe("wakeword.detected", self._on_wakeword)
+        self.event_bus.subscribe("announcement.received", self._on_announcement)
 
         @app.get("/", response_class=HTMLResponse)
         async def index():
@@ -81,9 +82,8 @@ class WebServer:
                 "history": self._transcript_history[-10:],
                 "config": {
                     "satellite_name": self.config.satellite_name,
+                    "satellite_port": self.config.satellite_port,
                     "wake_word": self.config.wake_word_name,
-                    "ha_host": self.config.ha_host,
-                    "ha_port": self.config.ha_port,
                 },
             }
 
@@ -113,3 +113,12 @@ class WebServer:
 
     async def _on_wakeword(self, _event: str, data: dict) -> None:
         await self._broadcast({"type": "wakeword", **data})
+
+    async def _on_announcement(self, _event: str, data: dict) -> None:
+        text = data.get("text", "")
+        if text:
+            entry = {"text": f"📢 {text}"}
+            self._transcript_history.append(entry)
+            if len(self._transcript_history) > 50:
+                self._transcript_history = self._transcript_history[-50:]
+        await self._broadcast({"type": "announcement", **data})

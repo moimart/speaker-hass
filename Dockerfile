@@ -13,8 +13,14 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
+# Install test dependencies (optional, for test stage)
+COPY requirements-test.txt .
+RUN pip install --no-cache-dir -r requirements-test.txt
+
+# Copy application code and tests
 COPY app/ ./app/
+COPY tests/ ./tests/
+COPY pytest.ini .
 
 # Create models directory
 RUN mkdir -p /models

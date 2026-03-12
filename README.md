@@ -79,7 +79,6 @@ In `docker-compose.yml`, update:
 
 ```yaml
 environment:
-  - HA_HOST=192.168.1.100        # Your Home Assistant IP
   - MIC_DEVICE=plughw:CARD=Jabra,DEV=0
   - SND_DEVICE=plughw:CARD=Jabra,DEV=0
   - WAKE_WORD_NAME=okay_nabu     # or hey_jarvis, alexa, hey_mycroft
@@ -117,15 +116,32 @@ The web interface shows the voice assistant's state in real-time:
 
 The settings page at `/settings` shows connection details and has a **Trigger Pipeline** button for testing without a wake word.
 
+## Announcements
+
+The satellite supports announcements triggered from Home Assistant automations. When HA connects via the Wyoming integration, it creates an `assist_satellite` entity (e.g., `assist_satellite.speaker_hass`).
+
+Use the `assist_satellite.announce` action in automations or scripts:
+
+```yaml
+action:
+  - action: assist_satellite.announce
+    target:
+      entity_id: assist_satellite.speaker_hass
+    data:
+      message: "Dinner is ready"
+```
+
+HA renders the text through its configured TTS engine and streams the audio to the satellite for playback. Announcements also appear in the web UI history.
+
+> **Note:** The satellite is *not* a `media_player` entity — it cannot play arbitrary audio streams or music. It handles voice assistant interactions and TTS announcements only.
+
 ## Configuration
 
 All configuration is via environment variables in `docker-compose.yml`:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `HA_HOST` | `homeassistant.local` | Home Assistant hostname or IP |
-| `HA_PORT` | `10300` | HA Wyoming integration port |
-| `SATELLITE_PORT` | `10700` | Port this satellite listens on |
+| `SATELLITE_PORT` | `10700` | Port this satellite listens on (HA connects to us) |
 | `SATELLITE_NAME` | `Speaker HASS` | Name shown in HA |
 | `MIC_DEVICE` | `plughw:CARD=Jabra,DEV=0` | ALSA capture device |
 | `SND_DEVICE` | `plughw:CARD=Jabra,DEV=0` | ALSA playback device |

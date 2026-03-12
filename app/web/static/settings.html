@@ -15,30 +15,22 @@
 
         <main>
             <section class="settings-section">
-                <h2 class="section-title">Connection</h2>
-                <div class="setting-row">
-                    <span class="setting-label">Home Assistant</span>
-                    <span class="setting-value" id="haHost">—</span>
-                </div>
-                <div class="setting-row">
-                    <span class="setting-label">Port</span>
-                    <span class="setting-value" id="haPort">—</span>
-                </div>
-                <div class="setting-row">
-                    <span class="setting-label">Status</span>
-                    <span class="setting-value" id="haStatus">—</span>
-                </div>
-            </section>
-
-            <section class="settings-section">
                 <h2 class="section-title">Satellite</h2>
                 <div class="setting-row">
                     <span class="setting-label">Name</span>
                     <span class="setting-value" id="satName">—</span>
                 </div>
                 <div class="setting-row">
+                    <span class="setting-label">Wyoming Port</span>
+                    <span class="setting-value" id="satPort">—</span>
+                </div>
+                <div class="setting-row">
                     <span class="setting-label">Wake Word</span>
                     <span class="setting-value" id="wakeWord">—</span>
+                </div>
+                <div class="setting-row">
+                    <span class="setting-label">HA Connection</span>
+                    <span class="setting-value" id="haStatus">—</span>
                 </div>
             </section>
 
@@ -62,11 +54,10 @@
             try {
                 const res = await fetch('/api/status');
                 const data = await res.json();
-                document.getElementById('haHost').textContent = data.config.ha_host;
-                document.getElementById('haPort').textContent = data.config.ha_port;
-                document.getElementById('haStatus').textContent = data.state.connected ? 'Connected' : 'Disconnected';
                 document.getElementById('satName').textContent = data.config.satellite_name;
+                document.getElementById('satPort').textContent = data.config.satellite_port;
                 document.getElementById('wakeWord').textContent = data.config.wake_word;
+                document.getElementById('haStatus').textContent = data.state.connected ? 'Connected' : 'Waiting for HA';
 
                 const dot = document.querySelector('.connection-dot');
                 const text = document.querySelector('.connection-text');

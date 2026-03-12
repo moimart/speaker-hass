@@ -6,10 +6,6 @@ from dataclasses import dataclass, field
 
 @dataclass
 class Config:
-    # Home Assistant Wyoming server
-    ha_host: str = field(default_factory=lambda: os.environ.get("HA_HOST", "homeassistant.local"))
-    ha_port: int = field(default_factory=lambda: int(os.environ.get("HA_PORT", "10300")))
-
     # Wyoming satellite server port (HA connects to us)
     satellite_port: int = field(default_factory=lambda: int(os.environ.get("SATELLITE_PORT", "10700")))
     satellite_name: str = field(default_factory=lambda: os.environ.get("SATELLITE_NAME", "Speaker HASS"))

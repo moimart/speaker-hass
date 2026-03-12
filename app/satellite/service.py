@@ -149,6 +149,19 @@ class SatelliteService:
             )
             await self._set_state(SatelliteState.IDLE)
 
+        elif RunPipeline.is_type(event.type):
+            pipeline = RunPipeline.from_event(event)
+            if pipeline.start_stage == PipelineStage.TTS:
+                # Announcement from HA automation
+                logger.info("Announcement pipeline: %s", pipeline.announce_text or "(audio)")
+                if pipeline.announce_text:
+                    await self.event_bus.publish("announcement.received", {
+                        "text": pipeline.announce_text,
+                    })
+                await self._set_state(SatelliteState.RESPONDING)
+            else:
+                logger.info("RunPipeline: %s → %s", pipeline.start_stage.value, pipeline.end_stage.value)
+
         elif Detect.is_type(event.type):
             logger.debug("Detect received — listening for wake word")
             await self._set_state(SatelliteState.IDLE)
@@ -156,17 +169,16 @@ class SatelliteService:
     async def _send_info(self) -> None:
         """Send satellite info to HA."""
         info = Info(
-            satellite=[
-                Satellite(
-                    name=self.config.satellite_name,
-                    description="Speaker HASS Voice Satellite",
-                    attribution=Attribution(
-                        name="Speaker HASS",
-                        url="",
-                    ),
-                    installed=True,
-                )
-            ]
+            satellite=Satellite(
+                name=self.config.satellite_name,
+                description="Speaker HASS Voice Satellite",
+                version="1.0.0",
+                attribution=Attribution(
+                    name="Speaker HASS",
+                    url="",
+                ),
+                installed=True,
+            )
         )
         await self._send_event(info.event())
 

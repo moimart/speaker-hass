@@ -79,6 +79,11 @@
                 addHistoryItem(msg.text);
                 break;
 
+            case "announcement":
+                showTranscript(msg.text);
+                addHistoryItem("\u{1F4E2} " + msg.text);
+                break;
+
             case "wakeword":
                 // Visual feedback handled by state change
                 break;
