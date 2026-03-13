@@ -13,6 +13,7 @@ services:
     ports:
       - "8080:8080"    # Web UI
       - "10700:10700"  # Wyoming satellite
+      - "6600:6600"    # MPD (media_player)
 
     volumes:
       - ./models:/models:ro
