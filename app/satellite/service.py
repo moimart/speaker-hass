@@ -16,6 +16,7 @@ from wyoming.vad import VoiceStarted, VoiceStopped
 from wyoming.wake import Detect, Detection
 
 from app.audio.player import AudioPlayer
+from app.audio.sounds import listening_chime
 from app.config import Config
 from app.events import EventBus
 from app.satellite.state import SatelliteState
@@ -227,6 +228,10 @@ class SatelliteService:
             ).event()
         )
         logger.info("Sent RunPipeline (ASR→TTS) to HA")
+
+        # Play listening chime
+        if self.config.sound_enabled:
+            await self.player.play(listening_chime(self.config.audio_rate))
 
         # Start streaming audio
         self._chunk_count = 0
