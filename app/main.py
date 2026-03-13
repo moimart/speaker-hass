@@ -12,6 +12,7 @@ from app.config import Config
 from app.events import EventBus
 from app.satellite.service import SatelliteService
 from app.wakeword.detector import WakeWordDetector
+from app.media.service import MediaPlayerService
 from app.web.server import WebServer
 
 logging.basicConfig(
@@ -32,11 +33,13 @@ async def main() -> None:
     logger.info("  Mic: %s | Speaker: %s", config.mic_device, config.snd_device)
     logger.info("  Wake word: %s (threshold %.2f)", config.wake_word_name, config.wake_word_threshold)
     logger.info("  Web UI: http://0.0.0.0:%d", config.web_port)
+    logger.info("  MPD: port 6600 (media_player)")
 
     recorder = AudioRecorder(config, event_bus)
     player = AudioPlayer(config)
     detector = WakeWordDetector(config, event_bus)
     satellite = SatelliteService(config, event_bus, player)
+    media_player = MediaPlayerService(config, event_bus)
     web_server = WebServer(config, event_bus)
 
     app = web_server.create_app()
@@ -53,6 +56,7 @@ async def main() -> None:
         recorder.run(),
         detector.run(),
         satellite.run(),
+        media_player.run(),
         server.serve(),
     )
 

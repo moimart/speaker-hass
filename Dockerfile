@@ -7,6 +7,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     alsa-utils \
     libasound2 \
     libasound2-plugins \
+    mpd \
+    mpc \
     gcc \
     g++ \
     python3-dev \
@@ -30,6 +32,6 @@ COPY pytest.ini .
 # Create models directory
 RUN mkdir -p /models
 
-EXPOSE 8080 10700
+EXPOSE 8080 10700 6600
 
 CMD ["python", "-m", "app.main"]
