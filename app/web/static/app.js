@@ -164,6 +164,49 @@
         }
     });
 
+    // ---- Volume Control ----
+    const volumeControl = document.getElementById("volumeControl");
+    const volumeBtn = document.getElementById("volumeBtn");
+    const volumeSlider = document.getElementById("volumeSlider");
+    let volumeDebounce = null;
+
+    // Load initial volume
+    fetch("/api/volume")
+        .then(function (r) { return r.json(); })
+        .then(function (d) { volumeSlider.value = d.volume; updateVolumeIcon(d.volume); })
+        .catch(function () {});
+
+    // Toggle slider visibility
+    volumeBtn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        volumeControl.classList.toggle("open");
+    });
+
+    // Close slider when tapping elsewhere
+    document.addEventListener("click", function (e) {
+        if (!volumeControl.contains(e.target)) {
+            volumeControl.classList.remove("open");
+        }
+    });
+
+    // Handle slider input (debounced)
+    volumeSlider.addEventListener("input", function () {
+        var val = parseInt(volumeSlider.value, 10);
+        updateVolumeIcon(val);
+        clearTimeout(volumeDebounce);
+        volumeDebounce = setTimeout(function () {
+            fetch("/api/volume/" + val, { method: "POST" }).catch(function () {});
+        }, 150);
+    });
+
+    function updateVolumeIcon(vol) {
+        var w1 = volumeBtn.querySelector(".vol-wave-1");
+        var w2 = volumeBtn.querySelector(".vol-wave-2");
+        if (w1) w1.style.display = vol > 5 ? "" : "none";
+        if (w2) w2.style.display = vol > 40 ? "" : "none";
+        volumeBtn.classList.toggle("muted", vol === 0);
+    }
+
     // Start
     connect();
 })();

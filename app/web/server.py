@@ -1,5 +1,6 @@
 """FastAPI web server with WebSocket for real-time status."""
 
+import asyncio
 import json
 import logging
 from pathlib import Path
@@ -89,7 +90,96 @@ class WebServer:
                 },
             }
 
+        @app.get("/api/volume")
+        async def get_volume():
+            vol = await self._get_alsa_volume()
+            return {"volume": vol}
+
+        @app.post("/api/volume/{level}")
+        async def set_volume(level: int):
+            level = max(0, min(100, level))
+            await self._set_alsa_volume(level)
+            return {"volume": level}
+
         return app
+
+    async def _discover_volume_control(self) -> str | None:
+        """Find the ALSA playback volume control name from the configured sound device."""
+        if hasattr(self, "_volume_control"):
+            return self._volume_control
+
+        # Extract card name from device string like "plughw:CARD=S330,DEV=0"
+        card_arg = []
+        snd = self.config.snd_device
+        if "CARD=" in snd:
+            card = snd.split("CARD=")[1].split(",")[0]
+            card_arg = ["-c", card]
+
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "amixer", *card_arg, "scontrols",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, _ = await proc.communicate()
+            if proc.returncode != 0:
+                self._volume_control = None
+                return None
+
+            # Find a playback volume control
+            import re
+            for line in stdout.decode().splitlines():
+                name_match = re.search(r"'(.+?)'", line)
+                if name_match:
+                    name = name_match.group(1)
+                    # Check if this control has playback volume
+                    proc2 = await asyncio.create_subprocess_exec(
+                        "amixer", *card_arg, "get", name,
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.PIPE,
+                    )
+                    out2, _ = await proc2.communicate()
+                    text = out2.decode()
+                    if "Playback" in text and "%" in text:
+                        self._volume_control = name
+                        self._volume_card_arg = card_arg
+                        logger.info("Discovered volume control: %s (card: %s)", name, card_arg)
+                        return name
+
+            self._volume_control = None
+            return None
+        except Exception:
+            self._volume_control = None
+            return None
+
+    async def _get_alsa_volume(self) -> int:
+        """Read current ALSA playback volume (0-100)."""
+        control = await self._discover_volume_control()
+        if not control:
+            return 50
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "amixer", *self._volume_card_arg, "get", control,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, _ = await proc.communicate()
+            import re
+            match = re.search(r"\[(\d+)%\]", stdout.decode())
+            return int(match.group(1)) if match else 50
+        except Exception:
+            return 50
+
+    async def _set_alsa_volume(self, level: int) -> None:
+        """Set ALSA playback volume (0-100)."""
+        control = await self._discover_volume_control()
+        if not control:
+            return
+        await asyncio.create_subprocess_exec(
+            "amixer", *self._volume_card_arg, "set", control, f"{level}%",
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.DEVNULL,
+        )
 
     async def _broadcast(self, message: dict) -> None:
         """Send a message to all connected WebSocket clients."""
