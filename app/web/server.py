@@ -101,6 +101,17 @@ class WebServer:
             await self._set_alsa_volume(level)
             return {"volume": level}
 
+        @app.get("/api/mute")
+        async def get_mute():
+            muted = await self._get_mic_mute()
+            return {"muted": muted}
+
+        @app.post("/api/mute/toggle")
+        async def toggle_mute():
+            muted = await self._get_mic_mute()
+            await self._set_mic_mute(not muted)
+            return {"muted": not muted}
+
         return app
 
     async def _discover_volume_control(self) -> str | None:
@@ -177,6 +188,71 @@ class WebServer:
             return
         await asyncio.create_subprocess_exec(
             "amixer", *self._volume_card_arg, "set", control, f"{level}%",
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.DEVNULL,
+        )
+
+    async def _discover_capture_switch(self) -> int | None:
+        """Find the ALSA capture switch numid from the configured mic device."""
+        if hasattr(self, "_capture_switch_numid"):
+            return self._capture_switch_numid
+
+        card_arg = []
+        mic = self.config.mic_device
+        if "CARD=" in mic:
+            card = mic.split("CARD=")[1].split(",")[0]
+            card_arg = ["-c", card]
+
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "amixer", *card_arg, "controls",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, _ = await proc.communicate()
+            if proc.returncode != 0:
+                self._capture_switch_numid = None
+                return None
+
+            import re
+            for line in stdout.decode().splitlines():
+                if "Capture Switch" in line:
+                    match = re.search(r"numid=(\d+)", line)
+                    if match:
+                        self._capture_switch_numid = int(match.group(1))
+                        self._capture_card_arg = card_arg
+                        logger.info("Discovered capture switch: numid=%d", self._capture_switch_numid)
+                        return self._capture_switch_numid
+
+            self._capture_switch_numid = None
+            return None
+        except Exception:
+            self._capture_switch_numid = None
+            return None
+
+    async def _get_mic_mute(self) -> bool:
+        """Check if mic is muted (capture switch off)."""
+        numid = await self._discover_capture_switch()
+        if numid is None:
+            return False
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "amixer", *self._capture_card_arg, "cget", f"numid={numid}",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, _ = await proc.communicate()
+            return "values=off" in stdout.decode()
+        except Exception:
+            return False
+
+    async def _set_mic_mute(self, mute: bool) -> None:
+        """Set mic mute state."""
+        numid = await self._discover_capture_switch()
+        if numid is None:
+            return
+        await asyncio.create_subprocess_exec(
+            "amixer", *self._capture_card_arg, "cset", f"numid={numid}", "0" if mute else "1",
             stdout=asyncio.subprocess.DEVNULL,
             stderr=asyncio.subprocess.DEVNULL,
         )

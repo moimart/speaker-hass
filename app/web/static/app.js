@@ -164,6 +164,39 @@
         }
     });
 
+    // ---- Mic Mute ----
+    const micMuteBtn = document.getElementById("micMuteBtn");
+    const micIcon = micMuteBtn.querySelector(".mic-icon");
+    const micOffIcon = micMuteBtn.querySelector(".mic-off-icon");
+
+    var lastMuted = null;
+
+    function pollMuteState() {
+        fetch("/api/mute")
+            .then(function (r) { return r.json(); })
+            .then(function (d) { setMuteState(d.muted); })
+            .catch(function () {});
+    }
+
+    pollMuteState();
+    setInterval(pollMuteState, 2000);
+
+    micMuteBtn.addEventListener("click", function () {
+        fetch("/api/mute/toggle", { method: "POST" })
+            .then(function (r) { return r.json(); })
+            .then(function (d) { setMuteState(d.muted); })
+            .catch(function () {});
+    });
+
+    function setMuteState(muted) {
+        if (muted === lastMuted) return;
+        lastMuted = muted;
+        micMuteBtn.classList.toggle("muted", muted);
+        micIcon.style.display = muted ? "none" : "";
+        micOffIcon.style.display = muted ? "" : "none";
+        micMuteBtn.title = muted ? "Mic muted (hardware)" : "Mic active";
+    }
+
     // ---- Volume Control ----
     const volumeControl = document.getElementById("volumeControl");
     const volumeBtn = document.getElementById("volumeBtn");
