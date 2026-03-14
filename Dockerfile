@@ -1,4 +1,4 @@
-FROM python:3.11-slim-bookworm
+FROM python:3.12-slim-bookworm
 
 LABEL org.opencontainers.image.source=https://github.com/moimart/speaker-hass
 
@@ -7,8 +7,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     alsa-utils \
     libasound2 \
     libasound2-plugins \
-    mpd \
-    mpc \
+    libportaudio2 \
     gcc \
     g++ \
     python3-dev \
@@ -32,6 +31,6 @@ COPY pytest.ini .
 # Create models directory
 RUN mkdir -p /models
 
-EXPOSE 8080 10700 6600
+EXPOSE 8080 10700
 
 CMD ["python", "-m", "app.main"]

@@ -1,124 +1,116 @@
-"""MPD-based media player service for Home Assistant integration."""
+"""Sendspin-audio media player service for Music Assistant integration."""
 
 import asyncio
 import logging
 import os
-from pathlib import Path
+import re
 
 from app.config import Config
 from app.events import EventBus
 
 logger = logging.getLogger(__name__)
 
-MPD_CONF_TEMPLATE = """\
-music_directory     "/var/lib/mpd/music"
-playlist_directory  "/var/lib/mpd/playlists"
-db_file             "/var/lib/mpd/database"
-log_file            "syslog"
-pid_file            "/var/lib/mpd/pid"
-state_file          "/var/lib/mpd/state"
-sticker_file        "/var/lib/mpd/sticker.sql"
 
-bind_to_address     "0.0.0.0"
-port                "{mpd_port}"
+def _extract_card_name(alsa_device: str) -> str:
+    """Extract card name from ALSA device string, e.g. 'plughw:CARD=S330,DEV=0' -> 'S330'."""
+    match = re.search(r"CARD=([^,]+)", alsa_device)
+    return match.group(1) if match else ""
 
-auto_update         "yes"
 
-audio_output {{
-    type        "alsa"
-    name        "Speaker"
-    device      "{snd_device}"
-    mixer_type  "software"
-}}
+def find_portaudio_device(card_name: str) -> int:
+    """Find the PortAudio output device index matching the given ALSA card name.
 
-# HTTP stream input support
-input {{
-    plugin      "curl"
-}}
-"""
+    Returns -1 (system default) if sounddevice is unavailable or no match found.
+    """
+    if not card_name:
+        return -1
+    try:
+        import sounddevice as sd  # type: ignore
+
+        for i, dev in enumerate(sd.query_devices()):
+            if card_name.lower() in dev["name"].lower() and dev["max_output_channels"] > 0:
+                logger.info("Found PortAudio device %d: %s", i, dev["name"])
+                return i
+    except Exception:
+        pass
+    logger.warning("Could not find PortAudio device for card '%s', using default", card_name)
+    return -1
 
 
 class MediaPlayerService:
-    """Manages MPD for media playback alongside voice assistant."""
+    """Runs sendspin-audio daemon for Music Assistant media playback."""
 
     def __init__(self, config: Config, event_bus: EventBus) -> None:
         self.config = config
         self.event_bus = event_bus
-        self._mpd_port = int(os.environ.get("MPD_PORT", "6600"))
+        self._ma_host: str = os.environ.get("MUSIC_ASSISTANT_HOST", "")
+        self._ma_port: int = int(os.environ.get("MUSIC_ASSISTANT_PORT", "8927"))
+        self._name: str = os.environ.get("SENDSPIN_NAME", config.satellite_name)
+        self._device_idx: int = int(os.environ.get("SENDSPIN_AUDIO_DEVICE", "-2"))
         self._process: asyncio.subprocess.Process | None = None
         self._was_playing = False
 
     async def run(self) -> None:
-        """Start MPD and keep it running."""
+        """Start sendspin daemon and keep it running."""
         self.event_bus.subscribe("state.changed", self._on_state_changed)
 
-        # Create required directories
-        for d in ["/var/lib/mpd/music", "/var/lib/mpd/playlists"]:
-            os.makedirs(d, exist_ok=True)
+        # Auto-detect PortAudio device if not explicitly set
+        device_idx = self._device_idx
+        if device_idx == -2:
+            card_name = _extract_card_name(self.config.snd_device)
+            device_idx = find_portaudio_device(card_name)
 
-        # Generate config
-        conf_path = "/var/lib/mpd/mpd.conf"
-        conf = MPD_CONF_TEMPLATE.format(
-            snd_device=self.config.snd_device,
-            mpd_port=self._mpd_port,
-        )
-        Path(conf_path).write_text(conf)
+        cmd = ["sendspin", "daemon", "--name", self._name, "--audio-device", str(device_idx)]
 
-        logger.info("Starting MPD on port %d (device: %s)", self._mpd_port, self.config.snd_device)
+        if self._ma_host:
+            url = f"ws://{self._ma_host}:{self._ma_port}/sendspin"
+            cmd += ["--url", url]
+            logger.info("Starting sendspin daemon (device=%d, MA=%s)", device_idx, url)
+        else:
+            logger.info("Starting sendspin daemon (device=%d, mDNS discovery)", device_idx)
 
         while True:
             try:
                 self._process = await asyncio.create_subprocess_exec(
-                    "mpd", "--no-daemon", conf_path,
+                    *cmd,
                     stdout=asyncio.subprocess.DEVNULL,
                     stderr=asyncio.subprocess.PIPE,
                 )
-                logger.info("MPD started (pid=%d)", self._process.pid)
+                logger.info("Sendspin started (pid=%d)", self._process.pid)
 
-                # Read stderr for any errors
                 stderr = await self._process.stderr.read()
                 returncode = await self._process.wait()
 
                 if stderr:
-                    logger.warning("MPD stderr: %s", stderr.decode().strip())
-                logger.warning("MPD exited with code %d, restarting in 5s", returncode)
+                    logger.warning("Sendspin stderr: %s", stderr.decode().strip())
+                logger.warning("Sendspin exited with code %d, restarting in 5s", returncode)
+            except FileNotFoundError:
+                logger.error("'sendspin' binary not found — is it installed?")
             except Exception:
-                logger.exception("Failed to start MPD")
+                logger.exception("Failed to start sendspin")
 
             await asyncio.sleep(5)
 
-    async def _mpc(self, *args: str) -> str:
-        """Run an mpc command and return stdout."""
-        cmd = ["mpc", "-p", str(self._mpd_port), *args]
-        try:
-            proc = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            stdout, _ = await proc.communicate()
-            return stdout.decode().strip()
-        except Exception:
-            return ""
-
-    async def _is_playing(self) -> bool:
-        """Check if MPD is currently playing."""
-        status = await self._mpc("status")
-        return "[playing]" in status
+    async def _stop_process(self) -> None:
+        """Terminate the sendspin daemon to release the audio device."""
+        if self._process and self._process.returncode is None:
+            self._process.terminate()
+            try:
+                await asyncio.wait_for(self._process.wait(), timeout=3.0)
+            except asyncio.TimeoutError:
+                self._process.kill()
 
     async def _on_state_changed(self, _event: str, data: dict) -> None:
-        """Pause MPD during TTS/announcements, resume after."""
+        """Stop sendspin during TTS/announcements so aplay can use the ALSA device."""
         state = data.get("state", "")
 
         if state in ("responding", "wake"):
-            # Voice assistant needs the speaker — pause MPD
-            self._was_playing = await self._is_playing()
-            if self._was_playing:
-                logger.info("Pausing MPD for voice assistant")
-                await self._mpc("pause")
+            if self._process and self._process.returncode is None:
+                self._was_playing = True
+                logger.info("Stopping sendspin for voice assistant")
+                await self._stop_process()
 
         elif state == "idle" and self._was_playing:
-            # Voice assistant done — resume MPD
-            logger.info("Resuming MPD after voice assistant")
-            await self._mpc("play")
+            # Sendspin's run() loop will restart it automatically
+            logger.info("Sendspin will resume on next restart")
             self._was_playing = False

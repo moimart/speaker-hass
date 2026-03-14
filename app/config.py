@@ -38,6 +38,9 @@ class Config:
         default_factory=lambda: os.environ.get("SOUND_ENABLED", "true").lower() == "true"
     )
 
+    # Sendspin / Music Assistant
+    music_assistant_host: str = field(default_factory=lambda: os.environ.get("MUSIC_ASSISTANT_HOST", ""))
+
     @property
     def chunk_samples(self) -> int:
         return int(self.audio_rate * self.audio_chunk_ms / 1000)
